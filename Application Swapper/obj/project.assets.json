@@ -647,7 +647,8 @@
   "projectFileDependencyGroups": {
     "net8.0": [
       "Discord.Net >= 3.17.1",
-      "Discord.Net.Commands >= 3.17.1"
+      "Discord.Net.Commands >= 3.17.1",
+      "Discord.Net.Interactions >= 3.17.1"
     ]
   },
   "packageFolders": {
@@ -705,6 +706,10 @@
             "version": "[3.17.1, )"
           },
           "Discord.Net.Commands": {
+            "target": "Package",
+            "version": "[3.17.1, )"
+          },
+          "Discord.Net.Interactions": {
             "target": "Package",
             "version": "[3.17.1, )"
           }

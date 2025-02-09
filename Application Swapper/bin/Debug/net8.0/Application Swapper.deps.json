@@ -9,7 +9,8 @@
       "Application Swapper/1.0.0": {
         "dependencies": {
           "Discord.Net": "3.17.1",
-          "Discord.Net.Commands": "3.17.1"
+          "Discord.Net.Commands": "3.17.1",
+          "Discord.Net.Interactions": "3.17.1"
         },
         "runtime": {
           "Application Swapper.dll": {}

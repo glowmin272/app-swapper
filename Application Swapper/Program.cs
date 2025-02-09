@@ -1,8 +1,11 @@
 ﻿using Discord;
 using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using System;
+using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Application_Swapper
@@ -11,76 +14,123 @@ namespace Application_Swapper
     {
         private static async Task Main(string[] args) => await new Program().RunBotAsync();
 
+        private DiscordSocketClient client;
         private async Task RunBotAsync()
         {
             var client = new DiscordSocketClient(new DiscordSocketConfig
             {
-                // gets the data from Discord Developer portal for permissions
                 GatewayIntents = GatewayIntents.MessageContent | GatewayIntents.Guilds | GatewayIntents.GuildMessages
             });
 
+            var commandService = new CommandService();
+            var interactionService = new InteractionService(client);
+
             client.Log += LogAsync;
-            client.MessageReceived += MessageReceivedAsync;
-            client.MessageReceived += ModAsync;
-            client.MessageReceived += CommandReceivedAsync;
             client.Ready += ReadyAsync;
+            client.InteractionCreated += InteractionCreatedAsync;
+            client.MessageReceived += MessageReceivedAsync;
 
-            // bot token. 
             string token = "token";
-
             await client.LoginAsync(TokenType.Bot, token);
             await client.StartAsync();
-
-            // keep program running until closed
-            await Task.Delay(-1);
+            await Task.Delay(-1);  // keeps the bot running
         }
 
-        private async Task CommandReceivedAsync(SocketMessage arg)
+        private async Task ReadyAsync()
         {
-            ulong resChannelId = 1335975220296683571; // channel id of reserve channel
-            ulong modChannelId = 1337883290463371304;  // channel id of mod channel
+            Console.WriteLine("Bot is online and ready!");
+            // pass client over
+            await RegisterSlashCommandsAsync(client);
+        }
 
-            // ignore messages from the bot itself
-            if (arg is not SocketUserMessage message || message.Author.IsBot) return;
-
-            if (message.Channel is SocketTextChannel textChannel && textChannel.Id == resChannelId)
+        private async Task RegisterSlashCommandsAsync(DiscordSocketClient client)
+        {
+            if (client == null)
             {
-                var resChannel = textChannel.Guild.GetTextChannel(resChannelId);
-                var modChannel = textChannel.Guild.GetTextChannel(modChannelId);
+                Console.WriteLine("Discord client is not initialized.");
+                return;
+            }
 
-                if (resChannel == null)
+            ulong guildId = 1335950055110082591; // server id
+            var guild = client.GetGuild(guildId);
+            if (guild == null) return;
+
+            var commands = new[] // all the commands are built here
+            {
+        new SlashCommandBuilder().WithName("choose").WithDescription("Choose a random option from a list.")
+        .AddOption("choices", ApplicationCommandOptionType.String, "The list of options, separated by commas.", isRequired: true).Build(),
+        new SlashCommandBuilder().WithName("assist").WithDescription("Get help with the bot.").Build(),
+        new SlashCommandBuilder().WithName("reserve").WithDescription("Reserve a character.")
+        .AddOption("name", ApplicationCommandOptionType.String, "The name of the character.", isRequired: true).Build(),
+        new SlashCommandBuilder().WithName("reject").WithDescription("Reject an application.")
+        .AddOption("name", ApplicationCommandOptionType.String, "The name of the character.", isRequired: true).AddOption("reason", ApplicationCommandOptionType.String, "Why the character is rejected.", isRequired: true).Build(),
+        new SlashCommandBuilder().WithName("approve").WithDescription("Approve an application.")
+        .AddOption("name", ApplicationCommandOptionType.String, "The name of the character to approve.", isRequired: true).Build(),
+        new SlashCommandBuilder().WithName("halfapp").WithDescription("1/2 approval on an application.")
+        .AddOption("name", ApplicationCommandOptionType.String, "The name of the character to approve.", isRequired: true).Build()
+    };
+
+            foreach (var command in commands)
+                await guild.CreateApplicationCommandAsync(command);
+
+            Console.WriteLine("Slash commands registered.");
+        }
+
+
+        private async Task InteractionCreatedAsync(SocketInteraction interaction)
+        {
+            ulong disChannelId = 1335950685774155806; // Channel ID for discussion
+            ulong modChannelId = 1337883290463371304;  // Channel ID for mod messages
+
+            if (interaction is not SocketSlashCommand slashCommand) return;
+
+            var user = (SocketUser)slashCommand.User;
+            var guildUser = (SocketGuildUser)user;
+            var modRole = guildUser.Guild.Roles.FirstOrDefault(role => role.Name.Equals("mods", StringComparison.OrdinalIgnoreCase));
+
+            // make sure user is moderator
+            async Task<bool> IsModerator()
+            {
+                if (modRole == null || !guildUser.Roles.Contains(modRole))
                 {
-                    Console.WriteLine("Target channel not found.");
-                    return;
+                    await slashCommand.RespondAsync("You do not have permission to use this command. Only moderators can perform this action.");
+                    return false;
                 }
-                // can only be ran in character-reservation
-                if (message.Content.StartsWith("/reserve"))
+                return true;
+            }
+
+            // send message to channel; is passed information through the function
+            async Task SendMessageToChannel(ulong channelId, string message)
+            {
+                var channel = guildUser.Guild.GetTextChannel(channelId);
+                if (channel != null)
                 {
-                    string content = message.Content["/reserve ".Length..].Trim();
-                    await modChannel.SendMessageAsync($"A reserve has been requested from {message.Author.Username}. See: {content}");
-                    await resChannel.SendMessageAsync("Your message has been sent.");
+                    await channel.SendMessageAsync(message);
+                }
+                else
+                {
+                    await slashCommand.RespondAsync("Failed to find the specified channel.");
                 }
             }
-            // commands that can be ran OUTSIDE of mod-bot-app
-            else if (message.Channel is SocketTextChannel textChannel1)
+
+            switch (slashCommand.Data.Name)
             {
-                if (message.Content.StartsWith("/choose"))
-                {
-                    string choicesString = message.Content["/choose ".Length..].Trim();
-                    if (!string.IsNullOrEmpty(choicesString))
+                case "choose":
+                    var choicesString = slashCommand.Data.Options.FirstOrDefault()?.Value?.ToString();
+                    if (choicesString != null)
                     {
                         var choices = choicesString.Split(',').Select(choice => choice.Trim()).ToArray();
                         var random = new Random();
                         var chosenOption = choices[random.Next(choices.Length)];
-                        await textChannel1.SendMessageAsync($"I have chosen: {chosenOption}");
+                        await slashCommand.RespondAsync($"I have chosen: {chosenOption}");
                     }
                     else
                     {
-                        await textChannel1.SendMessageAsync("Please provide a list of choices.");
+                        await slashCommand.RespondAsync("Please provide a list of choices.");
                     }
-                }
-                else if (message.Content.StartsWith("/assist"))
-                {
+                    break;
+
+                case "assist":
                     var assistMessage = new StringBuilder()
                         .AppendLine("Hi! I'm the application helper bot. I know a few commands and am here to help streamline the process of getting applications done! Here's a list of what I can do!")
                         .AppendLine("/assist is the command you just ran to see everything I've got up my... uh. Metaphorical sleeves.")
@@ -92,113 +142,88 @@ namespace Application_Swapper
                         .AppendLine("/reject is a command that is sent to character-discussion. It includes the character name and why it was rejected. This can only be done by mods.")
                         .AppendLine("More features are in the works!")
                         .ToString();
+                    await slashCommand.RespondAsync(assistMessage);
+                    break;
 
-                    await textChannel1.SendMessageAsync(assistMessage);
-                }
+                case "approve":
+                case "halfapp":
+                case "reject":
+                    if (!await IsModerator()) return;
+
+                    var characterName = slashCommand.Data.Options.FirstOrDefault(o => o.Name == "name")?.Value?.ToString();
+                    if (string.IsNullOrEmpty(characterName))
+                    {
+                        await slashCommand.RespondAsync("Please provide the name of the character.");
+                        return;
+                    }
+
+                    if (slashCommand.Data.Name == "reject")
+                    {
+                        var rejectReason = slashCommand.Data.Options.FirstOrDefault(o => o.Name == "reason")?.Value?.ToString();
+                        if (string.IsNullOrEmpty(rejectReason))
+                        {
+                            await slashCommand.RespondAsync("Please provide the reason for rejection.");
+                            return;
+                        }
+
+                        string rejectionMessage = $"The character '{characterName}' has been rejected. Reason: {rejectReason}";
+                        await slashCommand.RespondAsync("Rejection message sent.");
+                    }
+                    else
+                    {
+                        string approvalMessage = slashCommand.Data.Name == "approve" ? $"The character '{characterName}' has been approved!" :
+                                                 slashCommand.Data.Name == "halfapp" ? $"The character '{characterName}' has 1/2 approval." :
+                                                 string.Empty;
+
+                        await SendMessageToChannel(disChannelId, approvalMessage);
+                        await slashCommand.RespondAsync($"{slashCommand.Data.Name} message sent.");
+                    }
+                    break;
+                case "reserve":
+                    var reserveCharacterName = slashCommand.Data.Options.FirstOrDefault(o => o.Name == "name")?.Value?.ToString();
+                    if (string.IsNullOrEmpty(reserveCharacterName))
+                    {
+                        await slashCommand.RespondAsync("Please provide the name of the character you wish to reserve.");
+                        return;
+                    }
+
+                    string reservationMessage = $"The character '{reserveCharacterName}' has been requested to be reserved.";
+                    await SendMessageToChannel(modChannelId, reservationMessage);
+                    await slashCommand.RespondAsync($"The character '{reserveCharacterName}' has been reserved and the message has been sent to the mod channel.");
+                    break;
+
+                    break;
             }
         }
 
-        private async Task ModAsync(SocketMessage arg)
-        {
-            ulong modChannelId = 1337883290463371304;  // channel id of mod channel
-            ulong appChannelId = 1335950685774155806;  // channel id of application channel
-
-            // ignore messages from the bot itself
-            if (arg is not SocketUserMessage message || message.Author.IsBot) return;
-
-            // make sure message is correct and not from a dm/somewhere the bot cannot access
-            if (message.Channel is SocketTextChannel textChannel && textChannel.Id == modChannelId)
-            {
-                // define common behavior for retrieving the channels
-                var appChannel = textChannel.Guild.GetTextChannel(appChannelId);
-                var modChannel = textChannel.Guild.GetTextChannel(modChannelId);
-                if (appChannel == null)
-                {
-                    Console.WriteLine("Target channel not found.");
-                    return;
-                }
-
-                // handle different commands
-                if (message.Content.StartsWith("/approve")) // await [channel] = channel the message is being sent to
-                {
-                    string content = message.Content["/approve ".Length..].Trim();
-                    await appChannel.SendMessageAsync($"Full approval issued for: {content}"); 
-                    await modChannel.SendMessageAsync("Approval message sent.");
-                }
-                else if (message.Content.StartsWith("/halfapprove"))
-                {
-                    string content = message.Content["/halfapprove ".Length..].Trim();
-                    await appChannel.SendMessageAsync($"One approval has been issued for: {content}");
-                    await modChannel.SendMessageAsync("1/2 approval for an application has been sent.");
-                }
-                else if (message.Content.StartsWith("/review"))
-                {
-                    string content = message.Content["/review ".Length..].Trim();
-                    await appChannel.SendMessageAsync($"Review is in progress for: {content}");
-                    await modChannel.SendMessageAsync("Message regarding review has been sent.");
-                }
-                else if (message.Content.StartsWith("/reserve"))
-                {
-                    string content = message.Content["/reserve ".Length..].Trim();
-                    await modChannel.SendMessageAsync($"A reserve has been issued. See: {content}");
-                    await appChannel.SendMessageAsync("Your message has been sent.");
-                }
-                else if (message.Content.StartsWith("/reject"))
-                {
-                    string content = message.Content["/reject ".Length..].Trim();
-                    await appChannel.SendMessageAsync($"A rejection has been issued. See: {content}");
-                    await modChannel.SendMessageAsync("Rejection message sent.");
-                }
-            }
-        }
         private Task LogAsync(LogMessage log)
         {
-            // show the status of the bot (connecting, ready, etc)
             Console.WriteLine($"Log: {log}");
             return Task.CompletedTask;
         }
 
-        private async Task ReadyAsync()
-        {
-            // if connection is successful
-            Console.WriteLine("Bot is online and ready!");
-        }
-
         private async Task MessageReceivedAsync(SocketMessage arg)
         {
-            // ignore messages from the bot itself
-            if (arg is not SocketUserMessage message) return;
-            if (message.Author.IsBot) return;
+            // ignore bot's own messages
+            if (arg is not SocketUserMessage message || arg.Author.IsBot) return;
 
-            // make sure message is correct and not from a dm/somewhere the bot cannot access
-            if (message.Channel is SocketTextChannel textChannel)
+            ulong appChannelId = 1335950203769065492; // app channel
+            ulong modChannelId = 1337883290463371304;  // mod channel
+
+            var channel = arg.Channel as SocketTextChannel;
+            if (channel == null) return;
+
+            // double check channel id
+            if (channel.Id == appChannelId)
             {
-                ulong sourceChannelId = 1335950203769065492;  // channel id of application channel
-                if (textChannel.Id == sourceChannelId)
+                // get the mod channel
+                var modChannel = channel.Guild.GetTextChannel(modChannelId);
+                if (modChannel != null)
                 {
-                    ulong targetChannelId = 1337883290463371304;  // channel id of mod channel
-
-                    // double check channel id
-                    var targetChannel = textChannel.Guild.GetTextChannel(targetChannelId);
-
-                    if (targetChannel != null)
-                    {
-                        // send message
-                        await targetChannel.SendMessageAsync($"New Application from: {message.Author.Username}\nApplication Contents: {message.Content}");
-                    }
-                    else
-                    {
-                        // if the channel id is incorrect
-                        Console.WriteLine("Target channel not found.");
-                    }
+                    // gorward the message to the mod channel
+                    await modChannel.SendMessageAsync($"New submission from {message.Author.Username}: {message.Content}");
                 }
             }
-            else
-            {
-                // error handling
-                Console.WriteLine("Message error regarding receiving app. Please try again.");
-            }
-
         }
     }
-}
+    }

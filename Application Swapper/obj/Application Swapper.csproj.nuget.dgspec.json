@@ -57,6 +57,10 @@
             "Discord.Net.Commands": {
               "target": "Package",
               "version": "[3.17.1, )"
+            },
+            "Discord.Net.Interactions": {
+              "target": "Package",
+              "version": "[3.17.1, )"
             }
           },
           "imports": [
