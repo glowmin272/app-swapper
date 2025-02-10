@@ -26,7 +26,7 @@ namespace Application_Swapper
             {
                 GatewayIntents = GatewayIntents.MessageContent | GatewayIntents.Guilds | GatewayIntents.GuildMessages
             });
-
+            
             _commands = new CommandService();
             _interactions = new InteractionService(_client);
 
@@ -45,7 +45,6 @@ namespace Application_Swapper
         private async Task ReadyAsync()
         {
             Console.WriteLine("Bot is online!"); // when the bot connects
-            await _client.Rest.DeleteAllGlobalCommandsAsync();
             await RegisterSlashCommandsAsync();
         }
 
@@ -121,8 +120,6 @@ namespace Application_Swapper
             }
         }
 
-
-
         private async Task MessageReceivedAsync(SocketMessage socketMessage)
         {
             if (socketMessage is not SocketUserMessage message || message.Author.IsBot)
@@ -134,7 +131,7 @@ namespace Application_Swapper
             // if "vidow" appears anywhere in the message, prank em john
             if (messageContent.Contains("vidow"))
             {
-                string[] responses = { "VIDOW MENTIONED", "vidow,,,", "i was held at gunpoint to add a 'vidow mentioned' meme joke to the bot", "vidow :)" };
+                string[] responses = { "VIDOW MENTIONED", "vidow,,,", "i was held at gunpoint to add a 'vidow mentioned' meme joke to the bot", "vidow :)", "guys its vidow", "VIDOW MENTION" };
 
                 var random = new Random();
                 await message.Channel.SendMessageAsync(responses[random.Next(responses.Length)]);
@@ -163,7 +160,6 @@ namespace Application_Swapper
             }
 
         }
-
 
         private async Task HandleTextCommand(SocketCommandContext context, SocketUserMessage message, int argPos) // dreamer specific commands
         {
@@ -221,7 +217,6 @@ namespace Application_Swapper
             }
         }
 
-
         private async Task InteractionCreatedAsync(SocketInteraction interaction)
         {
             ulong disChannelId = 1335950685774155806; // channel ID for discussion
@@ -239,7 +234,8 @@ namespace Application_Swapper
             {
                 if (modRole == null || !guildUser.Roles.Contains(modRole))
                 {
-                    await slashCommand.RespondAsync("You do not have permission to use this command. Only moderators can perform this action.");
+                    await slashCommand.RespondAsync("You do not have permission to use this command. Only moderators can perform this action." +
+                        "\nChances are you just started a message with '?'. Just ignore this message then!");
                     return false;
                 }
                 return true;
@@ -325,6 +321,7 @@ namespace Application_Swapper
                         await slashCommand.RespondAsync($"{slashCommand.Data.Name} message sent.");
                     }
                     break;
+
                 case "reserve":
                     if (slashCommand.ChannelId != resChannelId)
                     {
@@ -364,9 +361,7 @@ namespace Application_Swapper
 
                         if (channel != null)
                         {
-                            await channel.SendMessageAsync(messageOption);
-                            await slashCommand.RespondAsync($"Message sent to <#{channelId}>.", ephemeral: true);
-                        }
+                            await channel.SendMessageAsync(messageOption);                        }
                         else
                         {
                             await slashCommand.RespondAsync("Invalid channel ID.", ephemeral: true);
@@ -383,8 +378,6 @@ namespace Application_Swapper
                     break;
             }
         }
-
-
         private Task LogAsync(LogMessage log)
         {
             Console.WriteLine($"Log: {log}");
