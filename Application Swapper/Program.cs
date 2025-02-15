@@ -19,6 +19,11 @@ namespace Application_Swapper
         private IServiceProvider _services;
 
         static async Task Main(string[] args) => await new Program().RunBotAsync();
+        private Dictionary<ulong, ulong> queueMessageMap = new(); // GuildId -> MessageId
+        private Dictionary<ulong, List<(string Username, string CharacterName)>> queueData = new(); // GuildId -> List of Users
+        private ulong _fightMessageId = 0;
+        private List<Tuple<string, string>> _queue = new List<Tuple<string, string>>();
+
 
         private async Task RunBotAsync()
         {
@@ -26,7 +31,7 @@ namespace Application_Swapper
             {
                 GatewayIntents = GatewayIntents.MessageContent | GatewayIntents.Guilds | GatewayIntents.GuildMessages
             });
-            
+
             _commands = new CommandService();
             _interactions = new InteractionService(_client);
 
@@ -61,12 +66,13 @@ namespace Application_Swapper
 
             var existingCommands = await guild.GetApplicationCommandsAsync();
 
-            // check if commands are already registered
+            //check if commands are already registered
             if (existingCommands.Any())
             {
                 Console.WriteLine("Slash commands are already registered. Skipping registration.");
                 return;
             }
+
             // if they aren't registered, go on to registry
             Console.WriteLine("Registering slash commands...");
 
@@ -106,6 +112,21 @@ namespace Application_Swapper
             .WithDescription("Make the bot speak.")
             .AddOption("channel", ApplicationCommandOptionType.String, "The channel ID.", isRequired: true)
             .AddOption("message", ApplicationCommandOptionType.String, "The message to send.", isRequired: true)
+            .Build(),
+        new SlashCommandBuilder().WithName("startfight")
+            .WithDescription("Start a fight and create a queue post.")
+            .Build(),
+        new SlashCommandBuilder().WithName("joinqueue")
+            .WithDescription("Join the fight queue.")
+            .AddOption("character", ApplicationCommandOptionType.String, "The character you are using.", isRequired: true)
+            .Build(),
+        new SlashCommandBuilder().WithName("leavequeue")
+            .WithDescription("Leave the fight queue.")
+            .AddOption("character", ApplicationCommandOptionType.String, "The character you are using.", isRequired: true)
+            .Build(),
+        new SlashCommandBuilder().WithName("linkfightpost")
+            .WithDescription("Link the fight post.")
+            .AddOption("message", ApplicationCommandOptionType.String, "The message of the fight post.", isRequired: true)
             .Build()
     };
 
@@ -120,6 +141,7 @@ namespace Application_Swapper
             }
         }
 
+        // dreamer's commands + commands all users can use via ?
         private async Task MessageReceivedAsync(SocketMessage socketMessage)
         {
             if (socketMessage is not SocketUserMessage message || message.Author.IsBot)
@@ -156,9 +178,7 @@ namespace Application_Swapper
                 {
                     await targetChannel.SendMessageAsync($"A new app from {message.Author.Username} has been submitted: {message.Content}");
                 }
-
             }
-
         }
 
         private async Task HandleTextCommand(SocketCommandContext context, SocketUserMessage message, int argPos) // dreamer specific commands
@@ -211,10 +231,6 @@ namespace Application_Swapper
                         break;
                 }
             }
-            else
-            {
-                await context.Channel.SendMessageAsync("You do not have permission to use this command. Only moderators can perform this action.");
-            }
         }
 
         private async Task InteractionCreatedAsync(SocketInteraction interaction)
@@ -228,6 +244,8 @@ namespace Application_Swapper
             var user = (SocketUser)slashCommand.User;
             var guildUser = (SocketGuildUser)user;
             var modRole = guildUser.Guild.Roles.FirstOrDefault(role => role.Name.Equals("mods", StringComparison.OrdinalIgnoreCase));
+            // get channel id of #battle-details
+            var fightChannel = await _client.GetChannelAsync(1340168827010285649) as IMessageChannel;  // Same channel ID as in startfight
 
             // make sure user is moderator
             async Task<bool> IsModerator()
@@ -272,6 +290,110 @@ namespace Application_Swapper
                     }
                     break;
 
+                case "startfight":
+                    // create queue post
+
+                    if (fightChannel != null)
+                    {
+                        var fightMessage = await fightChannel.SendMessageAsync("Fight Queue:\n(Use /joinqueue to join and /leavequeue to leave)");
+                        _fightMessageId = fightMessage.Id;  // store message ID for later use
+                        Console.WriteLine($"Fight message posted with ID: {_fightMessageId}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Failed to find the fight channel.");
+                    }
+                    break;
+
+                case "joinqueue":
+                    var characterOption = slashCommand.Data.Options.FirstOrDefault(o => o.Name == "character");
+
+                    if (characterOption != null && characterOption.Value is string character && !string.IsNullOrWhiteSpace(character))
+                    {
+                        var username = slashCommand.User.Username;
+
+                        if (fightChannel != null)
+                        {
+                            var joinFightMessage = await fightChannel.GetMessageAsync(_fightMessageId) as IUserMessage;
+
+                            if (joinFightMessage != null)
+                            {
+                                if (!joinFightMessage.Content.Contains($"{username} - {character}"))
+                                {
+                                    var newContent = $"{joinFightMessage.Content}\n{username} - {character}";
+                                    await joinFightMessage.ModifyAsync(msg => msg.Content = newContent);
+                                    await slashCommand.RespondAsync($"You have entered the fight with {character}. Thank you!");
+                                }
+                                else
+                                {
+                                    await slashCommand.RespondAsync($"{username}, you are already in the queue with {character}.");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Failed to fetch fight message in channel: {fightChannel.Name}");
+                                await slashCommand.RespondAsync("Could not find the fight message. Ensure it's posted in the correct channel.");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed to find the fight channel.");
+                            await slashCommand.RespondAsync("Could not find the specified channel. Please check the channel ID.");
+                        }
+                    }
+                    else
+                    {
+                        await slashCommand.RespondAsync("Please provide a valid character name."); // should never trigger
+                    }
+                    break;
+
+                case "leavequeue":
+                    var leaveCharacterOption = slashCommand.Data.Options.FirstOrDefault(o => o.Name == "character");
+
+                    if (leaveCharacterOption != null && leaveCharacterOption.Value is string leaveCharacter)
+                    {
+                        var leaveUsername = slashCommand.User.Username;
+
+                        if (fightChannel != null)
+                        {
+                            var leaveFightMessage = await fightChannel.GetMessageAsync(_fightMessageId) as IUserMessage;
+
+                            if (leaveFightMessage != null)
+                            {
+                                var entryToRemove = $"\n{leaveUsername} - {leaveCharacter}";
+                                if (leaveFightMessage.Content.Contains(entryToRemove))
+                                {
+                                    var updatedContent = leaveFightMessage.Content.Replace(entryToRemove, "").Trim();
+                                    if (updatedContent == "Fight Queue:\n(Use /joinqueue to join and /leavequeue to leave)")
+                                    {
+                                        updatedContent = "Fight Queue:\n(Use /joinqueue to join and /leavequeue to leave)"; // reset if empty
+                                    }
+                                    await leaveFightMessage.ModifyAsync(msg => msg.Content = updatedContent);
+                                    await slashCommand.RespondAsync($"You have left the queue for {leaveCharacter}. Thank you!");
+                                }
+                                else
+                                {
+                                    await slashCommand.RespondAsync($"You were not in the queue for {leaveCharacter}.");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Failed to fetch fight message in channel: {fightChannel.Name}");
+                                await slashCommand.RespondAsync("Could not find the fight message. Ensure it's posted in the correct channel.");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Failed to find the fight channel.");
+                            await slashCommand.RespondAsync("Could not find the specified channel. Please check the channel ID.");
+                        }
+                    }
+                    else
+                    {
+                        await slashCommand.RespondAsync("Please provide a valid character name."); // should never trigger
+                    }
+                    break;
+
                 case "assist":
                     var assistMessage = new StringBuilder()
                         .AppendLine("Hi! I'm the application helper bot. I know a few commands and am here to help streamline the process of getting applications done! Here's a list of what I can do!")
@@ -282,6 +404,10 @@ namespace Application_Swapper
                         .AppendLine("/halfapprove is a command to send 1/2 approval into character-discussion. This can only be done by mods.")
                         .AppendLine("/review is a command that is sent to character-discussion to show that a character's application is being reviewed. This can only be done by mods.")
                         .AppendLine("/reject is a command that is sent to character-discussion. It includes the character name and why it was rejected. This can only be done by mods.")
+                        .AppendLine("/speak is a command that allows the bot to speak in a specified channel. This can only be done by mods.")
+                        .AppendLine("/startfight is a command that starts a fight and creates a queue post.")
+                        .AppendLine("/joinqueue is a command that allows you to join the fight queue.")
+                        .AppendLine("/leavequeue is a command that allows you to leave the fight queue.")
                         .AppendLine("More features are in the works!")
                         .ToString();
                     await slashCommand.RespondAsync(assistMessage);
@@ -353,7 +479,7 @@ namespace Application_Swapper
                         await slashCommand.RespondAsync("Please provide a valid channel ID and message.", ephemeral: true);
                         return;
                     }
-
+                    
                     if (ulong.TryParse(channelIdOption.ToString(), out ulong channelId))
                     {
                         var guild = ((SocketGuildChannel)interaction.Channel).Guild;
@@ -361,7 +487,8 @@ namespace Application_Swapper
 
                         if (channel != null)
                         {
-                            await channel.SendMessageAsync(messageOption);                        }
+                            await channel.SendMessageAsync(messageOption);
+                        }
                         else
                         {
                             await slashCommand.RespondAsync("Invalid channel ID.", ephemeral: true);
@@ -378,6 +505,7 @@ namespace Application_Swapper
                     break;
             }
         }
+
         private Task LogAsync(LogMessage log)
         {
             Console.WriteLine($"Log: {log}");
