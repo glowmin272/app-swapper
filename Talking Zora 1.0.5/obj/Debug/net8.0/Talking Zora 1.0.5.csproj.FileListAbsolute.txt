@@ -1,0 +1,28 @@
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Talking Zora 1.0.5.exe
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Talking Zora 1.0.5.deps.json
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Talking Zora 1.0.5.runtimeconfig.json
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Talking Zora 1.0.5.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Talking Zora 1.0.5.pdb
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Discord.Net.Commands.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Discord.Net.Core.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Discord.Net.Interactions.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Discord.Net.Rest.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Discord.Net.Webhook.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Discord.Net.WebSocket.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Microsoft.Bcl.AsyncInterfaces.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\Newtonsoft.Json.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\System.Interactive.Async.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\System.Linq.Async.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\bin\Debug\net8.0\System.Reactive.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.csproj.AssemblyReference.cache
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.AssemblyInfoInputs.cache
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.AssemblyInfo.cs
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.csproj.CoreCompileInputs.cache
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking .569F8E68.Up2Date
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\refint\Talking Zora 1.0.5.dll
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.pdb
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\Talking Zora 1.0.5.genruntimeconfig.cache
+C:\Users\kuwin\OneDrive\Desktop\Talking Zora 1.0.5\obj\Debug\net8.0\ref\Talking Zora 1.0.5.dll
